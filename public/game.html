@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Page</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        #gameCanvas {
+            width: 100%;
+            height: auto;
+            border: 2px solid #555;
+            font-size: 24px;
+            display: flex;
+            flex-direction: column;
+            background-color: #1e1e1e;
+            color: #e0e0e0;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        .correct {
+            color: #4caf50;
+        }
+
+        .incorrect {
+            color: #f44336;
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 2px;
+            height: 24px;
+            background-color: #ffffff;
+            animation: blink 0.8s steps(2, start) infinite;
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="gamePage" class="page active">
+        <h1>Game Page</h1>
+        <p>Level: <span id="level">1</span></p>
+        <p>Score: <span id="score">0</span></p>
+        <div id="gameCanvas"></div>
+        <p id="timer">Time left: <span id="timeLeft">30</span> seconds</p>
+        <button onclick="navigateToMenu()">Back to Menu</button>
+    </div>
+
+    <script>
+        let timerInterval;
+        let timeLeft;
+        let currentSentences = [];  // Store unique sentences
+        let score = 0;
+        let level = 1;
+        let userInput = [];  // Track all user input per sentence
+        let totalGeneratedText = "";  // Track all generated text
+        let difficulty = localStorage.getItem('difficulty');  // Get difficulty from localStorage
+        let currentLineIndex = 0;  // Track the line the user is typing on
+        let cursorPosition = 0;  // Track the cursor's position within the current line
+        let gameOver = false;  // Track whether the game is over
+        let inputHistory = [];  // Store detailed input events
+
+        document.addEventListener('DOMContentLoaded', () => {
+            startGame();
+        });
+
+        function navigateToMenu() {
+            window.location.href = 'menu.html';
+        }
+
+        function startGame() {
+            if (difficulty === 'easy') {
+                timeLeft = 60;
+            } else if (difficulty === 'medium') {
+                timeLeft = 45;
+            } else if (difficulty === 'hard') {
+                timeLeft = 30;
+            } else {
+                timeLeft = 30;
+            }
+
+            document.getElementById('level').textContent = level;
+            document.getElementById('score').textContent = score;
+            document.getElementById('timeLeft').textContent = timeLeft;
+
+            fetchNewSentences();
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timeLeft').textContent = timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    endGame();  // End the game and process the result
+                }
+            }, 1000);
+        }
+
+        function fetchNewSentences() {
+            Promise.all([fetchSentence(), fetchSentence(), fetchSentence()])
+                .then((sentences) => {
+                    currentSentences = sentences;
+                    totalGeneratedText = currentSentences.join('\n');
+                    userInput = currentSentences.map(() => "");
+                    cursorPosition = 0;
+                    updateCanvas();
+                })
+                .catch(error => console.error('Error fetching sentences:', error));
+        }
+
+        function fetchSentence() {
+            return fetch('/get-sentence')
+                .then(response => response.json())
+                .then(data => data.sentence.trim());
+        }
+
+        function updateCanvas() {
+            const gameCanvas = document.getElementById('gameCanvas');
+            gameCanvas.innerHTML = '';
+
+            currentSentences.forEach((sentence, index) => {
+                const lineDiv = document.createElement('div');
+                const currentInput = userInput[index] || "";
+
+                for (let i = 0; i < sentence.length; i++) {
+                    const charSpan = document.createElement('span');
+
+                    if (currentInput[i] === sentence[i]) {
+                        charSpan.classList.add('correct');
+                    } else if (currentInput[i]) {
+                        charSpan.classList.add('incorrect');
+                    }
+
+                    if (index === currentLineIndex && i === cursorPosition && !gameOver) {
+                        const cursorSpan = document.createElement('span');
+                        cursorSpan.classList.add('cursor');
+                        lineDiv.appendChild(cursorSpan);
+                    }
+
+                    charSpan.textContent = sentence[i];
+                    lineDiv.appendChild(charSpan);
+                }
+
+                if (index === currentLineIndex && cursorPosition === currentInput.length && !gameOver) {
+                    const cursorSpan = document.createElement('span');
+                    cursorSpan.classList.add('cursor');
+                    lineDiv.appendChild(cursorSpan);
+                }
+
+                gameCanvas.appendChild(lineDiv);
+            });
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (!gameOver) {
+                const currentInput = userInput[currentLineIndex] || "";
+
+                let inputData = {
+                    timestamp: new Date().toISOString(),
+                    user_input: currentInput,
+                    generated_text: currentSentences[currentLineIndex],
+                    is_backspace: false,
+                    is_correct: false
+                };
+
+                if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
+                    userInput[currentLineIndex] = currentInput.slice(0, cursorPosition) + event.key + currentInput.slice(cursorPosition);
+                    inputData.user_input = event.key;
+                    inputData.is_correct = event.key === currentSentences[currentLineIndex][cursorPosition];
+                    cursorPosition++;  // Move cursor to the right
+                } else if (event.key === 'Backspace') {
+                    if (cursorPosition > 0) {
+                        userInput[currentLineIndex] = currentInput.slice(0, cursorPosition - 1) + currentInput.slice(cursorPosition);
+                        cursorPosition--;
+                        inputData.is_backspace = true;
+                    }
+                }
+
+                inputHistory.push(inputData);  // Save the event in input history
+
+                updateCanvas();
+
+                if (userInput[currentLineIndex].length === currentSentences[currentLineIndex].length) {
+                    currentLineIndex++;
+                    cursorPosition = 0;
+                }
+
+                if (currentLineIndex >= currentSentences.length) {
+                    fetchNewSentences();
+                    currentLineIndex = 0;
+                    cursorPosition = 0;
+                }
+            }
+        });
+
+        function endGame() {
+            gameOver = true;
+            saveInputHistory();
+        }
+
+        function saveInputHistory() {
+            const gameData = {
+                timestamp: new Date().toISOString(),
+                score: score,
+                level: level,
+                history: inputHistory
+            };
+
+            fetch('/save-input-history', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(gameData)
+            })
+            .then(response => response.json())
+            .then(result => {
+                console.log('Input history saved successfully');
+                window.location.href = 'result.html';  // Redirect to result page
+            })
+            .catch(error => {
+                console.error('Error saving input history:', error);
+                window.location.href = 'result.html';
+            });
+        }
+    </script>
+</body>
+
+</html>

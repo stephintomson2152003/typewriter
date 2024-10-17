@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Result Page</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page active">
+    <h1>Result Page</h1>
+    <div id="summary">
+      <h2>Game Summary</h2>
+      <p><strong>Words per Minute (WPM):</strong> <span id="wpm">N/A</span></p>
+      <p><strong>Accuracy (%):</strong> <span id="accuracy">N/A</span></p>
+      <p><strong>Correct Keystrokes:</strong> <span id="correct">N/A</span></p>
+      <p><strong>Incorrect Keystrokes:</strong> <span id="incorrect">N/A</span></p>
+      <p><strong>Missed Characters:</strong> <span id="missed">N/A</span></p>
+    </div>
+
+    <div id="performance-graph" style="margin-top: 20px;">
+      <h2>Performance Graph</h2>
+      <img id="statistics-graph" src="/output/statistics.png" alt="Game Statistics Graph" style="margin-top: 20px; max-width: 100%; border: 1px solid #555;">
+    </div>
+
+    <button onclick="navigateToMenu()">Back to Menu</button>
+    <button onclick="playAgain()">Play Again</button>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Fetch and display statistics
+      fetch('/output/statistics.json')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Failed to load statistics.');
+          }
+          return response.json();
+        })
+        .then(stats => {
+          // Update statistics elements
+          document.getElementById('wpm').textContent = stats.words_per_minute.toFixed(2);
+          document.getElementById('accuracy').textContent = (stats.accuracy * 100).toFixed(2);  // Display accuracy as percentage
+          document.getElementById('correct').textContent = stats.raw_statistics.correct;
+          document.getElementById('incorrect').textContent = stats.raw_statistics.incorrect;
+          document.getElementById('missed').textContent = stats.raw_statistics.missed;
+        })
+        .catch(error => {
+          console.error('Error fetching statistics:', error);
+          document.getElementById('summary').innerHTML += '<p style="color: red;">Failed to load statistics data.</p>';
+        });
+
+      // Set the graph image source
+      document.getElementById('statistics-graph').src = '/output/statistics.png';
+    });
+
+    function navigateToMenu() {
+      window.location.href = 'menu.html';
+    }
+
+    function playAgain() {
+      window.location.href = 'game.html';
+    }
+  </script>
+</body>
+</html>

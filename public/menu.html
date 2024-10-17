@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game Menu</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page active">
+    <h1>Welcome to the Game</h1>
+    <p>Select Difficulty Level:</p>
+    <button onclick="selectDifficulty('easy')">Easy</button>
+    <button onclick="selectDifficulty('medium')">Medium</button>
+    <button onclick="selectDifficulty('hard')">Hard</button>
+  </div>
+
+  <script>
+    function selectDifficulty(difficulty) {
+      localStorage.setItem('difficulty', difficulty);
+      window.location.href = 'game.html';
+    }
+  </script>
+</body>
+</html>
